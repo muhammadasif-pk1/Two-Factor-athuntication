@@ -1,0 +1,209 @@
+# Two-Factor Authentication (2FA) with Google Authenticator
+
+## Purpose
+
+This document defines the security requirements for implementing Two-Factor Authentication (2FA) using a TOTP-compatible authenticator such as Google Authenticator.
+
+The goal is to provide an additional authentication factor and reduce the risk of account compromise caused by stolen or leaked passwords.
+
+## Scope
+
+This standard applies to:
+
+* User accounts
+* Administrative accounts
+* Staging accounts
+* Authentication APIs
+* Account recovery
+* Login and verification flows
+
+## Authentication Model
+
+The authentication flow should require:
+
+1. Username/email and password.
+2. Time-based one-time password (TOTP).
+3. Successful verification before granting access.
+
+```text
+User
+  │
+  ├── Email / Username + Password
+  │
+  ▼
+Authentication Server
+  │
+  ├── Password Verification
+  │
+  ▼
+TOTP Challenge
+  │
+  ├── Code from Authenticator App
+  │
+  ▼
+TOTP Verification
+  │
+  ▼
+Authenticated Session
+```
+
+## TOTP Requirements
+
+The implementation should use a standards-compliant TOTP implementation.
+
+Recommended security practices:
+
+* Use a cryptographically secure random secret during enrollment.
+* Protect the TOTP secret at rest.
+* Never expose the secret after enrollment unless a secure re-enrollment process is initiated.
+* Set an appropriate verification time window to account for clock drift.
+* Prevent unlimited verification attempts.
+* Log successful and failed verification events.
+* Protect account recovery mechanisms.
+
+## Enrollment
+
+A secure enrollment process should:
+
+1. Authenticate the user.
+2. Generate a unique TOTP secret.
+3. Present the enrollment information securely.
+4. Allow the user to configure the authenticator application.
+5. Request a valid TOTP code.
+6. Verify the code.
+7. Mark 2FA as enabled only after successful verification.
+
+## TOTP Secret Protection
+
+TOTP secrets are highly sensitive authentication material.
+
+They must:
+
+* Never be stored in source code.
+* Never be committed to Git.
+* Never be included in application logs.
+* Never be exposed through API responses unnecessarily.
+* Be protected using appropriate encryption/key-management controls.
+* Be accessible only to authorized authentication services.
+
+## Login Flow
+
+When 2FA is enabled:
+
+```text
+1. User submits username/password
+2. Server validates primary credentials
+3. Server determines that 2FA is enabled
+4. Server requests TOTP code
+5. User provides authenticator code
+6. Server verifies TOTP
+7. Server creates authenticated session
+```
+
+A failed TOTP verification must not reveal sensitive information about the user's authentication configuration.
+
+## Brute-Force Protection
+
+The application should protect TOTP verification against automated guessing.
+
+Recommended controls:
+
+* Rate-limit verification attempts.
+* Apply temporary account or challenge lockouts where appropriate.
+* Monitor repeated failures.
+* Alert on suspicious authentication activity.
+* Use secure session and challenge expiration.
+
+## Recovery
+
+Account recovery must be protected to prevent attackers from bypassing 2FA.
+
+Recovery mechanisms should:
+
+* Require appropriate identity verification.
+* Use one-time recovery codes where supported.
+* Protect recovery codes like passwords.
+* Invalidate used recovery codes.
+* Notify users when 2FA settings are changed.
+* Log recovery events.
+
+## Session Security
+
+After successful 2FA:
+
+* Use secure session identifiers.
+* Set appropriate session expiration.
+* Protect cookies with Secure and HttpOnly attributes where applicable.
+* Use appropriate SameSite settings.
+* Invalidate sessions after security-sensitive account changes where appropriate.
+
+## Administrative Accounts
+
+Privileged accounts should have stronger authentication requirements.
+
+Recommended:
+
+* Mandatory MFA/2FA.
+* Strong password policy.
+* Restricted administrative access.
+* Additional monitoring.
+* Regular access reviews.
+* Immediate removal of inactive privileged accounts.
+
+## Testing Checklist
+
+| Test                          | Expected Result                  | Status |
+| ----------------------------- | -------------------------------- | ------ |
+| Valid password + valid TOTP   | Login succeeds                   | ☐      |
+| Valid password + invalid TOTP | Login rejected                   | ☐      |
+| Valid password + expired TOTP | Login rejected                   | ☐      |
+| Invalid password + valid TOTP | Login rejected                   | ☐      |
+| Repeated invalid TOTP         | Rate limiting triggered          | ☐      |
+| 2FA enrollment                | Secret generated securely        | ☐      |
+| 2FA recovery                  | Secure recovery required         | ☐      |
+| TOTP secret exposure test     | Secret not exposed in logs/API   | ☐      |
+| Session after 2FA             | Secure authenticated session     | ☐      |
+| 2FA disable                   | Additional verification required | ☐      |
+
+## Security Logging
+
+Log security events such as:
+
+* 2FA enrollment
+* Successful 2FA verification
+* Failed 2FA verification
+* 2FA reset
+* Recovery-code usage
+* 2FA configuration changes
+
+Logs must not contain:
+
+* TOTP secrets
+* Passwords
+* Recovery codes
+* Authentication tokens
+
+## Data Protection
+
+TOTP secrets and other authentication data should be treated as sensitive information.
+
+Access should follow the principle of least privilege.
+
+## Implementation Notes
+
+Google Authenticator is an authenticator application. The application's backend should implement a standard TOTP mechanism rather than relying on the mobile application itself for security enforcement.
+
+Use a well-maintained, security-reviewed TOTP library rather than implementing cryptographic algorithms manually.
+
+## Review
+
+This standard should be reviewed:
+
+* At least annually.
+* After authentication architecture changes.
+* After security incidents.
+* After major changes to account recovery.
+* When authentication requirements change.
+
+**Owner:** Internee.pk Security / Development Team
+**Classification:** Internal
